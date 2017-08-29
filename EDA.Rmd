@@ -1,0 +1,25 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(tidyverse)
+
+df <- read.csv('data/dataset1.csv', stringsAsFactors = FALSE)
+```
+
+```{r}
+df$date2<-as.Date(df$date2)
+summary(df$date2)
+```
+```{r}
+df_test = df %>% filter(munid==1001)
+ggplot(df_test,aes(x=date2,y=revenue, group = tarifa, colour=tarifa)) + geom_line()
+ggplot(df_test,aes(x=date2,y=user, group = tarifa, colour=tarifa)) + geom_line()
+```
+
