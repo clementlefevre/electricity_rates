@@ -8,7 +8,8 @@ This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute
 Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
 ```{r}
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
 
 df <- read.csv('data/dataset1.csv', stringsAsFactors = FALSE)
 ```
@@ -18,7 +19,7 @@ df$date2<-as.Date(df$date2)
 summary(df$date2)
 ```
 ```{r}
-df_test = df %>% filter(munid==1001)
+df_test = df %>% filter(munid==2003)
 ggplot(df_test,aes(x=date2,y=revenue, group = tarifa, colour=tarifa)) + geom_line()
 ggplot(df_test,aes(x=date2,y=user, group = tarifa, colour=tarifa)) + geom_line()
 ```
