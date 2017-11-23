@@ -1,0 +1,57 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(rgdal)
+library(readstata13)
+library(ncdf4)
+library(raster)
+```
+
+
+
+
+
+
+```{r}
+summary(dt)
+```
+
+```{r}
+df.tariffa<- dat <- read.dta13('gis/GISdataCLEMENT/tariff/Tariffs.dta')
+summary(df.tariffa)
+```
+```{r}
+filename = 'gis/GISdataCLEMENT/air.mon.mean.nc'
+nc<-   nc_open(filename)
+names(nc$var)
+summary(nc)
+```
+Crop on mex
+```{r}
+rasta<-raster(filename)
+
+e <- extent(240,289,0,40)
+rc <- crop(rasta, e)
+plot(rc[[1]])
+```
+
+```{r}
+r <- brick(filename, varname = "air")
+r
+cropped.r<- crop(r, e)
+```
+
+```{r}
+tab <- as.data.frame(r[[200]], xy = TRUE)
+tab<- tab %>% filter(x>240 & x<289 & y>0 & y<40)
+plot(tab$x,tab$y,col=tab$X1964.08.01)
+```
+
+```{r}
+df.weather.stations<- 
+```
+
