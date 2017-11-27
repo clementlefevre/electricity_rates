@@ -9,23 +9,72 @@ library(rgdal)
 library(readstata13)
 library(ncdf4)
 library(raster)
+library(stringr)
+library(gridExtra)
+
+library(RColorBrewer)
+library(classInt)
+library(plotrix)    # Créer des échelles de couleurs
+
+```
+GIS Data
+```{r}
+muni.gis <- readOGR(dsn="gis/shapefiles/conjunto_de_datos/",layer = "areas_geoestadisticas_municipales")
+muni.gis@data <- muni.gis@data %>% mutate(id = paste(CVE_ENT,CVE_MUN,sep=''))
+muni.gis@data
 ```
 
 
-
-
-
-
 ```{r}
-summary(dt)
-```
-
-```{r}
-df.tariffa<- dat <- read.dta13('gis/GISdataCLEMENT/tariff/Tariffs.dta')
+df.tariffa<-  read.dta13('gis/tariff/Tariffs.dta')
 summary(df.tariffa)
 ```
+### Combine Tariffa with GIS data
 ```{r}
-filename = 'gis/GISdataCLEMENT/air.mon.mean.nc'
+muni.gis@data<- left_join(muni.gis@data,df.tariffa, by='id')
+
+```
+### Plot tariffa map
+
+```{r}
+plot_map_region<- function(comm,feature,color_hex,title,ratio){
+  color_hex_min='#404040'
+  color_hex_max=color_hex
+  
+  data.comm<- comm@data %>% mutate(feature = ifelse(is.na(feature),mean(feature),feature))
+  data <- data.comm[,feature]
+
+  col <- findColours(classIntervals(
+            data, 10, style="quantile"),
+            smoothColors(color_hex_min,3,'white',2,color_hex_max))
+
+leg <- findColours(classIntervals(
+            round(data*ratio,0), 5, style="quantile"),
+            smoothColors(color_hex_min,3,'white',2,color_hex_max),
+            under="<", over=">", between="–",
+            cutlabels=FALSE)
+
+plot(comm,   col=col, border='green', lwd=.1,main=title)
+
+
+
+plot(comm,   col=col, border=col, lwd=.1,main=title,add=TRUE)
+
+
+legend("bottomleft",fill=attr(leg, "palette"),
+    legend=gsub("\\.", ",", names(attr(leg,"table"))),
+    title = paste(title," :"),bty = "n",cex=1)
+  
+}
+
+muni.gis.01<- subset(muni.gis,id=='01001')
+
+plot_map_region(muni.gis.01,'month',"#ca0020",'Le Pen Votes 2017 (%)',ratio=1)
+```
+
+
+```{r}
+filename = 'gis/noaa_temperatures//air.mon.mean.nc'
 nc<-   nc_open(filename)
 names(nc$var)
 summary(nc)
@@ -48,10 +97,10 @@ cropped.r<- crop(r, e)
 ```{r}
 tab <- as.data.frame(r[[200]], xy = TRUE)
 tab<- tab %>% filter(x>240 & x<289 & y>0 & y<40)
-plot(tab$x,tab$y,col=tab$X1964.08.01)
+plot(tab$x,tab$y,col=tab$X1964.08.01.00.06.32)
 ```
 
 ```{r}
-df.weather.stations<- 
+df.weather.stations 
 ```
 
