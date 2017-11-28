@@ -1,0 +1,27 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+library(RColorBrewer)
+library(ggthemes)
+```
+
+```{r}
+df<-read.csv('Resume - Sheet1.csv')
+df$Date<-dmy(df$Date)
+str(df)
+df<-df %>% gather(field,ratio,Management:Supplier.Management)
+ggplot(df, aes(Date, ratio)) +geom_area(aes( fill= field), position = 'stack')   + theme_economist() + scale_fill_economist()
+  
+
+```
+
