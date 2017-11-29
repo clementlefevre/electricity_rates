@@ -1,25 +1,27 @@
-Position,Date,Management,Software,Lean,Supplier Management,
-Thyssen,1/1/2000,10,20,70,0,100
-Thyssen,1/6/2000,10,20,70,0,100
+Position,Date,Management,Software,Lean,Operations,
+Thyssen,1/1/2001,10,20,70,0,100
+Thyssen,30/6/2001,10,20,70,0,100
+Bike,1/7/2001,0,0,0,0,0
+Bike,31/10/2001,0,0,0,0,0
 Faurecia Changchun,1/11/2001,10,10,30,50,100
-Faurecia Changchun,1/4/2003,10,10,30,50,100
-Faurecia France,1/6/2003,20,0,30,50,100
-Faurecia France,1/4/2004,20,0,30,50,100
-Faurecia Wuxi,1/5/2004,30,10,20,40,100
-Faurecia Wuxi,1/4/2006,30,10,20,40,100
-Bombardier France,1/5/2006,0,0,90,10,100
+Faurecia Changchun,31/3/2003,10,10,30,50,100
+Faurecia France,1/4/2003,20,0,30,50,100
+Faurecia France,30/3/2004,20,0,30,50,100
+Faurecia Wuxi,1/4/2004,30,10,20,40,100
+Faurecia Wuxi,30/3/2006,30,10,20,40,100
+Bombardier France,1/4/2006,0,0,90,10,100
 Bombardier France,1/11/2006,0,0,90,10,100
 Bike,2/11/2006,0,0,0,0,0
 Bike,30/10/2007,0,0,0,0,0
 Alstom France,1/11/2007,50,10,20,20,100
 Alstom France,1/6/2010,50,10,20,20,100
 Alstom Austria,1/9/2010,40,20,20,20,100
-Alstom Austria,1/8/2013,40,20,20,20,100
+Alstom Austria,31/8/2013,40,20,20,20,100
 Cimdata,1/9/2013,,100,,,100
 Cimdata,28/2/2014,,100,,,100
-Dilax Berlin,1/3/2014,0,90,10,0,100
-Dilax Berlin,1/3/2017,0,90,10,0,100
+Dilax Berlin,1/3/2014,0,70,10,20,100
+Dilax Berlin,1/3/2017,0,70,10,20,100
 Udacity,2/3/2017,,100,,,100
-Udacity,20/8/2017,,100,,,100
+Udacity,31/8/2017,,100,,,100
 Akquinet Berlin,1/9/2017,0,100,0,0,100
 Akquinet Berlin,1/12/2017,0,100,0,0,100

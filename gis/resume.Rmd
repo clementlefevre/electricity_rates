@@ -17,26 +17,28 @@ library(lubridate)
 library(RColorBrewer)
 library(ggthemes)
 library(scales)
+library(grid)
 ```
 
 ```{r}
-df<-read.csv('resume_data.csv')
-df$Date<-dmy(df$Date)
-str(df)
-df<-df %>% gather(field,ratio,Management:Supplier.Management)
-ggplot(df, aes(Date, ratio)) +geom_area(aes( fill= field), position = 'stack')   + theme_economist() + scale_fill_economist()
+
+
   
 
 ```
 ```{r}
+df<-read.csv('resume_data.csv')
+df$Date<-dmy(df$Date)
+str(df)
+df<-df %>% gather(field,ratio,Management:Operations)
 palette<-c("#075272","#ca3016","#ffba00","#23907b", "#897a8d","#70ddca")
 
-p<-ggplot(df, aes(Date, ratio)) +theme_fivethirtyeight()+geom_area(aes( fill= field), position = 'stack') +scale_x_date(breaks = pretty_breaks(15))+scale_fill_manual(values = palette)+labs(colour="")+theme(axis.title = element_text(), axis.title.x=element_blank(), axis.text.x = element_text(angle = 90, hjust = 1),legend.text=element_text(size=10),plot.caption=element_text(size=8),legend.title=element_blank(),legend.position="bottom", legend.direction="horizontal")+ggtitle("from MRP to MVP")+labs(caption = "©Clément Lefèvre 2017 (Source : linkedin.com)")+ylab("%")
-ggsave('resume.png',p,width = 12, height = 8,)
+p<-ggplot(df, aes(Date, ratio)) +theme_fivethirtyeight()+geom_area(aes( fill= field), position = 'stack') +scale_x_date(breaks = pretty_breaks(15))+scale_fill_manual(values = palette)+labs(colour="")+theme(axis.title = element_text(), axis.title.x=element_blank(), axis.text.x = element_text(angle = 90, hjust = 1),legend.text=element_text(size=10),plot.caption=element_text(size=8),legend.title=element_blank(),legend.position="bottom", legend.direction="horizontal")+ggtitle("from MRP to MVP")+labs(caption = "Source : linkedin.com")+ylab("%")
+p<-p  +annotate("text", x = make_date(year = 2001L, month = 4L, day = 1L), y = 80, label = "Thyssen", angle = 90,size=3,colour='white')+annotate("text", x = make_date(year = 2004L, month = 11L, day = 1L), y = 65, label = "Faurecia", angle = 90,size=3,colour='white')+annotate("text", x = make_date(year = 2006L, month = 7L, day = 1L), y = 40, label = "Bombardier", angle = 90,size=3,colour='white')+annotate("text", x = make_date(year = 2010L, month = 1L, day = 1L), y = 50, label = "Asltom", angle = 90,size=3,colour='white')+annotate("text", x = make_date(year = 2013L, month = 11L, day = 1L), y = 50, label = "CimData", angle = 90,size=3,colour='white')+annotate("text", x = make_date(year = 2015L, month = 5L, day = 1L), y = 50, label = "Dilax", angle = 90,size=3,colour='white')+annotate("text", x = make_date(year = 2017L, month = 5L, day = 1L), y = 50, label = "Udacity", angle = 90,size=3,colour='white')+annotate("text", x = make_date(year = 2017L, month = 10L, day = 1L), y = 50, label = "Akquinet", angle = 90,size=3,colour='white') +geom_vline(xintercept = make_date(year = 2001L, month = 10L, day = 1L),linetype="dotted")+geom_vline(xintercept = make_date(year = 2006L, month = 4L, day = 1L),linetype="dotted")+geom_vline(xintercept = make_date(year = 2013L, month = 9L, day = 1L),linetype="dotted")+geom_vline(xintercept = make_date(year = 2014L, month = 3L, day = 1L),linetype="dotted")+geom_vline(xintercept = make_date(year = 2017L, month = 3L, day = 1L),linetype="dotted")+geom_vline(xintercept = make_date(year = 2017L, month = 8L, day = 1L),linetype="dotted")+theme(plot.title = element_text(hjust = 0.5,size=12))
+
+p
+ggsave('resume.png',p,width = 12, height = 6,)
 ```
 
 
-```{r}
-ggplot(data=df_neighbourhood ,aes(x=date,y=mean_price,colour=neighbourhood_group))+theme_fivethirtyeight()+ geom_line(,size=1)+labs(colour="")+ theme(axis.title = element_text(), axis.title.x=element_blank(), axis.text.x = element_text(angle = 90, hjust = 1),legend.text=element_text(size=10),plot.caption=element_text(size=8))+scale_x_date(breaks = pretty_breaks(15))+scale_colour_manual(values = palette)+ ggtitle("Berlin : Full appartments")+labs(caption = "©Clément Lefèvre 2017 (Sources : insideairbnb.com)")+ylab("euros/night")
-```
 
