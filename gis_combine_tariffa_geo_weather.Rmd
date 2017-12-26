@@ -12,7 +12,6 @@ library(ncdf4)
 library(raster)
 library(stringr)
 library(gridExtra)
-
 library(RColorBrewer)
 library(classInt)
 library(plotrix)    # Créer des échelles de couleurs
@@ -104,16 +103,12 @@ rc <- crop(rasta, e)
 plot(rc[[1]])
 ```
 
-```{r}
-r <- brick(filename, varname = "air")
-r
-cropped.r<- crop(r, e)
-```
+
 
 ```{r}
 df.air_temp_xy <- as.data.frame(cropped.r, xy = TRUE)
 df.air_temp_xy<- df.air_temp_xy %>% filter(x>240 & x<289 & y>0 & y<40)
-plot(df.air_temp_xy$x,df.air_temp_xy$y,col=tab$X1964.08.01.00.06.32)
+plot(df.air_temp_xy$x,df.air_temp_xy$y,col=df.air_temp_xy$X1964.08.01.00.06.32)
 ```
 
 
