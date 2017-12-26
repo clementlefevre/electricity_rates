@@ -1,0 +1,80 @@
+---
+title: "GIS Data"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(tidyverse)
+library(rgdal)
+library(readstata13)
+library(stringr)
+library(ncdf4)
+library(raster)
+
+```
+
+## Read Tariffa and set the MUNICIPALITAD_ID
+```{r}
+df.tariffa<- read.dta13('tariff/Tariffs.dta')
+str(df.tariffa)
+df.tariffa$munid<- df.tariffa %>%  mutate(munid=str_pad(munid, 5, pad = "0"))
+str(df.tariffa)
+
+```
+## Read the NOOA NC file
+
+```{r}
+# open a NetCDF file
+ncin <- nc_open('noaa_temperatures/air.mon.1981-2010.ltm.nc')
+print(ncin)
+nc_close(ncin)
+```
+
+Raster
+```{r}
+r <- raster('noaa_temperatures/air.mon.1981-2010.ltm.nc')
+filename(r)
+hasValues(r)
+## [1] TRUE
+inMemory(r)
+## [1] FALSE
+plot(r, main='RasterLayer from file')
+```
+```{r}
+str(r)
+```
+
+```{r}
+str(r@data)
+
+```
+
+```{r}
+cdf <- nc_open('noaa_temperatures/air.mon.mean.nc')
+lat <- ncdf4::ncvar_get(cdf, varid="lat")
+lon <- ncdf4::ncvar_get(cdf, varid="lon")
+time <- ncdf4::ncvar_get(cdf, varid="time")
+air <- ncdf4::ncvar_get(cdf, varid="air")
+
+head(time)
+
+time_d <- as.Date(time, format="%j", origin=as.Date("1800-01-01"))
+time_years <- format(time_d, "%Y")
+time_months <- format(time_d, "%m")
+time_year_months <- format(time_d, "%Y-%m")
+head(time_d)
+summary(time)
+str(time)
+summary(as.Date(time/1000,origin=as.Date("1800-01-01")))
+nrow(time)
+time
+
+names(cdf$var)
+time
+
+```
+

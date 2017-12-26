@@ -6,6 +6,7 @@ output: html_notebook
 ```{r}
 library(tidyverse)
 library(rgdal)
+library(rgeos)
 library(readstata13)
 library(ncdf4)
 library(raster)
@@ -23,6 +24,14 @@ muni.gis <- readOGR(dsn="gis/shapefiles/conjunto_de_datos/",layer = "areas_geoes
 muni.gis@data <- muni.gis@data %>% mutate(id = paste(CVE_ENT,CVE_MUN,sep=''))
 muni.gis@data
 ```
+### Retrieve the centroids of each MUNID
+```{r}
+trueCentroids = gCentroid(muni.gis,byid=TRUE)
+plot(muni.gis)
+points(coordinates(muni.gis),pch=1)
+points(trueCentroids,pch=2)
+```
+
 
 
 ```{r}
@@ -32,7 +41,11 @@ summary(df.tariffa)
 ### Combine Tariffa with GIS data
 ```{r}
 muni.gis@data<- left_join(muni.gis@data,df.tariffa, by='id')
+head(muni.gis@data)
 
+muni.gis@data$tarifa.num<- as.numeric(muni.gis@data$tarifa)
+
+unique(muni.gis@data$tarifa.num)
 ```
 ### Plot tariffa map
 
@@ -42,7 +55,9 @@ plot_map_region<- function(comm,feature,color_hex,title,ratio){
   color_hex_max=color_hex
   
   data.comm<- comm@data %>% mutate(feature = ifelse(is.na(feature),mean(feature),feature))
+  data.comm<- data.comm %>% filter(month==10 & year==2010)
   data <- data.comm[,feature]
+  print(class(data))
 
   col <- findColours(classIntervals(
             data, 10, style="quantile"),
@@ -68,13 +83,14 @@ legend("bottomleft",fill=attr(leg, "palette"),
 }
 
 muni.gis.01<- subset(muni.gis,id=='01001')
+muni.gis.abasolo<- subset(muni.gis.01,NOM_MUN=='Abasolo')
 
-plot_map_region(muni.gis.01,'month',"#ca0020",'Le Pen Votes 2017 (%)',ratio=1)
+plot_map_region(muni.gis,'tarifa.num',"#ca0020",'Tarifa Family',ratio=1)
 ```
-
+### Extract Air temperature for Mexico
 
 ```{r}
-filename = 'gis/noaa_temperatures//air.mon.mean.nc'
+filename = 'gis/noaa_temperatures/air.mon.mean.nc'
 nc<-   nc_open(filename)
 names(nc$var)
 summary(nc)
@@ -95,12 +111,10 @@ cropped.r<- crop(r, e)
 ```
 
 ```{r}
-tab <- as.data.frame(r[[200]], xy = TRUE)
-tab<- tab %>% filter(x>240 & x<289 & y>0 & y<40)
-plot(tab$x,tab$y,col=tab$X1964.08.01.00.06.32)
+df.air_temp_xy <- as.data.frame(cropped.r, xy = TRUE)
+df.air_temp_xy<- df.air_temp_xy %>% filter(x>240 & x<289 & y>0 & y<40)
+plot(df.air_temp_xy$x,df.air_temp_xy$y,col=tab$X1964.08.01.00.06.32)
 ```
 
-```{r}
-df.weather.stations 
-```
+
 
