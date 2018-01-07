@@ -1,11 +1,8 @@
 ---
 title: "Combine Raster temperature with Mexico municipalities Shapefile"
 output:
-  html_notebook: default
-  html_document:
-    highlight: textmate
-    theme: spacelab
-    toc: yes
+  html_document: html_notebook
+
 ---
 
 
@@ -70,8 +67,11 @@ extraction <- extraction  %>% mutate_at(vars(-ID),funs(kelvins_to_celsius))
 
 
 pgeo@data <- data.frame(pgeo@data, means=extraction)
-  str(pgeo@data)
+
 spplot(pgeo, "means.X2014.08.01.01.06.32")
 df.mean.temp.per.muni.history<-as.data.frame(pgeo@data)
+```
+```{r}
+head(df.mean.temp.per.muni.history)
 ```
 

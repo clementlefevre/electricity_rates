@@ -86,30 +86,7 @@ muni.gis.abasolo<- subset(muni.gis.01,NOM_MUN=='Abasolo')
 
 plot_map_region(muni.gis,'tarifa.num',"#ca0020",'Tarifa Family',ratio=1)
 ```
-### Extract Air temperature for Mexico
 
-```{r}
-filename = 'gis/noaa_temperatures/air.mon.mean.nc'
-nc<-   nc_open(filename)
-names(nc$var)
-summary(nc)
-```
-Crop on mex
-```{r}
-rasta<-raster(filename)
-
-e <- extent(240,289,0,40)
-rc <- crop(rasta, e)
-plot(rc[[1]])
-```
-
-
-
-```{r}
-df.air_temp_xy <- as.data.frame(cropped.r, xy = TRUE)
-df.air_temp_xy<- df.air_temp_xy %>% filter(x>240 & x<289 & y>0 & y<40)
-plot(df.air_temp_xy$x,df.air_temp_xy$y,col=df.air_temp_xy$X1964.08.01.00.06.32)
-```
 
 
 
