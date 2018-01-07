@@ -20,8 +20,11 @@ Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by press
 When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
 ```{r}
 
-r<-rotate(raster('gis/noaa_temperatures/air.mon.mean.nc',band=100))
+r<-rotate(raster('gis/noaa_temperatures/air.mon.mean.nc',resolution=2))
+#r<-rotate(raster('gis/noaa_temperatures/air.mon.1981-2010.ltm.nc',resolution=1))
+proj<- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
 
+crs(r)<-proj
 
 e <- extent(-120,-70,0,40)
 rc <- crop(r, e)
@@ -38,6 +41,7 @@ myshp<-readOGR(dsn="gis/shapefiles/conjunto_de_datos/",layer = "areas_geoestadis
 ```{r}
 
 # tranform both data set to longlat
+#myshp<- subset(myshp,CVE_ENT=='01')
 
 rgeo <- projectRaster(rc, crs='+proj=longlat +datum=WGS84')
 pgeo <- spTransform(myshp, CRS('+proj=longlat +datum=WGS84'))
@@ -55,8 +59,7 @@ plot(pgeo, add=TRUE, col='blue', lwd=2)
 ```{r}
 extraction <-extract(rgeo,pgeo,weights = TRUE, normalizeWeights=TRUE, fun=mean)
 df<-as.data.frame(extraction)
-```
-```{r}
+
 pgeo@data <- data.frame(pgeo@data, means=extraction)
   str(pgeo@data)
 spplot(pgeo, "means")
