@@ -1,9 +1,16 @@
 ---
 title: "Combine Raster temperature with Mexico municipalities Shapefile"
-output: html_notebook
+output:
+  html_notebook: default
+  html_document:
+    highlight: textmate
+    theme: spacelab
+    toc: yes
 ---
 
+
 ```{r}
+library(dplyr)
 library(ncdf4)
 library(raster)
 library(sp)
@@ -11,51 +18,60 @@ library(rgeos)
 library(rgdal)
 library(dismo)
 ```
-
+## Read ShapeFile and Raster File.
 ```{r}
 
-r<-rotate(raster('gis/noaa_temperatures/air.mon.mean.nc',resolution=2), band=10)
-#r<-rotate(raster('gis/noaa_temperatures/air.mon.1981-2010.ltm.nc',resolution=1))
-#proj<- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
+muni.shp<-readOGR(dsn="gis/shapefiles/conjunto_de_datos/",layer = "areas_geoestadisticas_municipales")
 
-#crs(r)<-proj
+RASTER_FILE_NAME <- 'gis/noaa_temperatures/air.mon.mean.nc'
 
-e <- extent(-120,-70,0,40)
-rc <- crop(r, e)
+DATES <- c(800:838)
 
+r.stack<-stack(RASTER_FILE_NAME,bands=DATES)
+r.stack<- rotate(r.stack)
 
-plot(rc)
+data.frame( rasterToPoints( r.stack ) )
 
+mexico_limits <- extent(-118,-82,14,34)
+r.stack <- crop(r.stack, mexico_limits)
+print (r.stack)
+#df.r<- as.data.frame(rc,xy=TRUE,optional = TRUE)
+plot(r.stack)
 ```
-```{r}
-myshp<-readOGR(dsn="gis/shapefiles/conjunto_de_datos/",layer = "areas_geoestadisticas_municipales")
 
-```
-
+## Project both Shapefile and Raster  on WGS84 and check that they match on the map.
 ```{r}
 
 # tranform both data set to longlat
 #myshp<- subset(myshp,CVE_ENT=='01')
 
-rgeo <- projectRaster(rc, crs='+proj=longlat +datum=WGS84')
-pgeo <- spTransform(myshp, CRS('+proj=longlat +datum=WGS84'))
+rgeo <- projectRaster(r.stack, crs='+proj=longlat +datum=WGS84')
+pgeo <- spTransform(muni.shp, CRS('+proj=longlat +datum=WGS84'))
 
 # plot on top of Google map
-
-e <- union(extent(rc), extent(pgeo))
-print( e)
+e <- union(extent(rgeo), extent(pgeo))
+print(e)
 g <- gmap(e,lonlat=TRUE)
 plot(g, inter=TRUE)
-plot(extent(rc), add=TRUE, col='red', lwd=2)
+plot(extent(rgeo), add=TRUE, col='red', lwd=2)
 plot(pgeo, add=TRUE, col='blue', lwd=2)
+```
+```{r}
+kelvins_to_celsius= function(x){
+  return (x-273.15)
+}
 ```
 
 ```{r}
-extraction <-extract(rgeo,pgeo, method="simple",fun=mean,small=TRUE,na.rm=TRUE,df=FALSE)
-df<-as.data.frame(extraction)
+#extraction <-extract(rgeo,pgeo, weights = TRUE, normalizeWeights=TRUE, fun=mean,df=TRUE)
+extraction <-extract(rgeo,pgeo,fun=mean,df=TRUE)
+
+extraction <- extraction  %>% mutate_at(vars(-ID),funs(kelvins_to_celsius))
+
 
 pgeo@data <- data.frame(pgeo@data, means=extraction)
   str(pgeo@data)
-spplot(pgeo, "means")
+spplot(pgeo, "means.X2014.08.01.01.06.32")
+df.mean.temp.per.muni.history<-as.data.frame(pgeo@data)
 ```
 
