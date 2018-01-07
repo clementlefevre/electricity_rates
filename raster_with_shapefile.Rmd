@@ -7,6 +7,7 @@ output:
 
 
 ```{r}
+library(readstata13)
 library(dplyr)
 library(ncdf4)
 library(raster)
@@ -22,7 +23,7 @@ muni.shp<-readOGR(dsn="gis/shapefiles/conjunto_de_datos/",layer = "areas_geoesta
 
 RASTER_FILE_NAME <- 'gis/noaa_temperatures/air.mon.mean.nc'
 
-DATES <- c(800:838)
+DATES <- c(836:838)
 
 r.stack<-stack(RASTER_FILE_NAME,bands=DATES)
 r.stack<- rotate(r.stack)
@@ -68,10 +69,18 @@ extraction <- extraction  %>% mutate_at(vars(-ID),funs(kelvins_to_celsius))
 
 pgeo@data <- data.frame(pgeo@data, means=extraction)
 
-spplot(pgeo, "means.X2014.08.01.01.06.32")
-df.mean.temp.per.muni.history<-as.data.frame(pgeo@data)
-```
-```{r}
-head(df.mean.temp.per.muni.history)
+spplot(pgeo, "means.X2017.08.01.01.06.32",lwd=.1,title ='Mean temp (Celsius) for August 2014')
+
 ```
 
+## Read and add tariffa to shapefile data :
+```{r}
+pgeo@data <- pgeo@data %>% mutate(id = paste(CVE_ENT,CVE_MUN,sep=''))
+
+df.tariffa<-  read.dta13('gis/tariff/Tariffs.dta')
+summary(df.tariffa)
+pgeo@data<- left_join(pgeo@data,df.tariffa, by='id')
+
+df.temp.tariffa.munid<-as.data.frame(pgeo@data)
+head(df.temp.tariffa.munid)
+```
