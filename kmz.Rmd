@@ -1,0 +1,47 @@
+---
+title: "Read KMZ and scrap data"
+output: html_notebook
+---
+
+ 
+
+```{r}
+library(tidyverse)
+library(stringr)
+library(sp)
+library(rgdal)
+library(XML)
+```
+
+
+
+```{r}
+xml = xmlTreeParse('data/doc.kml', useInternalNodes=TRUE)
+lista.name<-xpathApply(xml, "//Folder/Placemark//name", xmlValue)
+lista.points.coordinates<-xpathApply(xml, "//Folder/Placemark//Point/coordinates", xmlValue)
+lista.href<-xpathApply(xml, "//Folder/Placemark//description",xmlValue)
+
+df<- do.call(rbind.data.frame, Map('c', lista.name, lista.points.coordinates,lista.href))
+colnames(df)<-c('ID',"Coordinates","Href")
+df<-df %>% mutate_all(funs(as.character))
+
+url_pattern <- "http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+
+df$ContentURL <- str_extract_all(df$Href, url_pattern)
+```
+
+```{r}
+
+df<-df %>% separate(ContentURL, into = paste("V", 1:8,sep='_'),sep=',')
+
+df <- df %>% mutate_at(vars(starts_with("V_")), str_extract, pattern = url_pattern)
+df <- df %>% mutate_at(vars(starts_with("V_")), str_replace_all, pattern = "(>Normales)|(>Climatolog)|(>Valores)","")
+
+
+```
+
+### Read Data
+```{r}
+weather.text <-read.table('http://smn.conagua.gob.mx/tools/RESOURCES/Diarios/1001.txt',skip=18,nrow = length(readLines("http://smn.conagua.gob.mx/tools/RESOURCES/Diarios/1001.txt")) - 100)
+```
+
