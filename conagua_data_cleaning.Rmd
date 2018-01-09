@@ -1,0 +1,143 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+```{r}
+library(tidyverse)
+library(stringr)
+library(stringi)
+```
+
+
+
+## Combine all stations info into dataframe
+
+```{r}
+all_files <-list.files(DATA_FOLDER <- 'data/sonaguas')
+all_infos_files <- all_files[grepl('(V_1)',all_files)]
+all_temp_files <- all_files[grepl('(V_7)',all_files)]
+```
+
+## Read the full history file and retrieve the station informations 
+
+```{r}
+get_stations_infos <- function(station_id){
+  
+  tryCatch({
+  
+  DATA_FOLDER <- 'data/sonaguas'
+  file <- paste(station_id,'V_1.txt',sep='')
+  filename <-paste(DATA_FOLDER,file,sep='/')
+  lns <- readLines(filename)
+  
+  start.read.infos <- grep('ESTAC',lns)
+  end.read.infos <- grep('EMISI',lns)
+  
+  df.infos <- read.table(filename, skip=start.read.infos-1,nrows=end.read.infos- start.read.infos-1, sep=':',col.names = c('feature','value'),encoding="Latin-1") 
+  
+  df.infos <- df.infos %>% mutate_all(funs(gsub("\260",'',.)))
+  df.infos$feature <- gsub(' ','',df.infos$feature)
+  df.infos$feature <- gsub('\323','O',df.infos$feature)
+  df.infos$value <- trimws(df.infos$value)
+  df.infos<-df.infos %>% spread(feature,value)
+  colnames(df.infos) <- make.names(colnames(df.infos), unique=TRUE)
+  
+  df.infos$LONGITUD<- as.numeric(df.infos$LONGITUD)
+  df.infos$LATITUD<- as.numeric(df.infos$LATITUD)
+  
+  },error=function(cond) {
+            message(paste("file could not be wrapped :", station_id))
+  })
+  return(df.infos)
+}
+
+```
+
+
+
+
+```{r}
+for (infos_file in all_infos_files){
+  station <- strsplit(infos_file, "V")[[1]]
+  station_id <- station[1]
+  
+  df.infos.stations <-get_stations_infos(station_id)
+  
+    if (exists('df.all') ){
+    df.all <- bind_rows(df.all,df.infos.stations)
+
+  } else{
+    df.all <-df.infos.stations
+  }
+}
+
+write.csv(df.all,'data/conagua_stations_infos.csv')
+
+
+```
+
+
+## Read the temperature text file for a given Station and convert the MIN/MAX Tem Prom to Dataframe
+
+```{r}
+convert_prom_temp_to_dataframe <- function(station_id){
+   tryCatch({
+  
+DATA_FOLDER <- 'data/sonaguas'
+file <- paste(station_id,'V_7.txt',sep='')
+
+filename <-paste(DATA_FOLDER,file,sep='/')
+
+lns <- readLines(filename)
+
+MINIMA <- grep('MINIMA',lns)
+start.read.mintmp <- grep('TEMP MINIMA PROM',lns)
+start.read.maxtmp <- grep('TEMP MAXIMA PROM',lns)
+end.read.mintmp <- MINIMA[match(start.read.mintmp,MINIMA)+1]
+end.read.maxtmp <- MINIMA[MINIMA>start.read.maxtmp][1]
+
+tmp.min.rows <- end.read.mintmp - start.read.mintmp
+tmp.max.rows <- end.read.maxtmp - start.read.maxtmp
+
+col.names <- c('title', 'YEAR',month.abb[seq(1:12)],'ACCUMULATED','MEAN', 'MONTHS')
+
+df.tmp.min<- read.fwf(filename, width=c(25,5,rep(7,each=13),10,10),skip=start.read.mintmp,col.names=col.names,n=tmp.min.rows)
+df.tmp.min$title='TEMP MINIMA PROM'
+df.tmp.max<- read.fwf(filename, width=c(25,5,rep(7,each=13),10,10),skip=start.read.maxtmp,col.names=col.names,n=tmp.max.rows)
+df.tmp.max$title='TEMP MAXIMA PROM'
+
+df<-  rbind(df.tmp.min,df.tmp.max)
+df$ID <- station_id
+df <- df %>%  select(ID, everything())},error=function(cond) {
+            message(paste("file could not be wrapped :", station_id))
+  })
+
+return (df)
+}
+
+df<-convert_prom_temp_to_dataframe('6003')
+
+
+for (file in all_temp_files){
+  station <- strsplit(file, "V")[[1]]
+  station_id <- station[1]
+  
+  df.infos.stations <-convert_prom_temp_to_dataframe(station_id)
+  
+    if (exists('df.all.temp') ){
+    df.all.temp <- bind_rows(df.all.temp,df.infos.stations)
+
+  } else{
+    df.all.temp <-df.infos.stations
+  }
+}
+
+write.csv(df.all.temp,'data/conagua_stations_temp.csv')
+```
+
+
+
+
+

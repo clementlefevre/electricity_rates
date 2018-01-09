@@ -11,18 +11,20 @@ library(stringr)
 library(sp)
 library(rgdal)
 library(XML)
+
 ```
 
 
-
+### Read the kml file from the kmz data
 ```{r}
 xml = xmlTreeParse('data/doc.kml', useInternalNodes=TRUE)
-lista.name<-xpathApply(xml, "//Folder/Placemark//name", xmlValue)
+lista.name  <-xpathApply(xml, "//Folder/name", xmlValue)
+lista.ID<-xpathApply(xml, "//Folder/Placemark//name", xmlValue)
 lista.points.coordinates<-xpathApply(xml, "//Folder/Placemark//Point/coordinates", xmlValue)
 lista.href<-xpathApply(xml, "//Folder/Placemark//description",xmlValue)
 
-df<- do.call(rbind.data.frame, Map('c', lista.name, lista.points.coordinates,lista.href))
-colnames(df)<-c('ID',"Coordinates","Href")
+df<- do.call(rbind.data.frame, Map('c',lista.ID, lista.name, lista.points.coordinates,lista.href))
+colnames(df)<-c('ID','name', "Coordinates","Href")
 df<-df %>% mutate_all(funs(as.character))
 
 url_pattern <- "http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
@@ -40,8 +42,38 @@ df <- df %>% mutate_at(vars(starts_with("V_")), str_replace_all, pattern = "(>No
 
 ```
 
-### Read Data
+### Read Data sample
 ```{r}
 weather.text <-read.table('http://smn.conagua.gob.mx/tools/RESOURCES/Diarios/1001.txt',skip=18,nrow = length(readLines("http://smn.conagua.gob.mx/tools/RESOURCES/Diarios/1001.txt")) - 100)
+```
+
+
+
+### Download files
+```{r}
+
+cols_url <- paste("V", 1:7,sep='_')
+
+DESTINATION_FOLDER <- 'data/sonaguas/'
+
+download.all.files <- function(x) {
+  
+  
+  for (col in cols_url){
+    destination.file <- (paste(DESTINATION_FOLDER,x['ID'],col,'.txt'))
+    destination.file <- gsub(' ','',destination.file)
+    
+    
+    if((!is.na(x[col])) & (!file.exists(destination.file)) &  (!endsWith(x[col],'.pdf'))){
+     tryCatch(
+        {download.file(x[col],destfile = destination.file)},
+        error=function(cond) {
+            message(paste("URL does not seem to exist:", x[col]))
+  })
+}
+  }
+}
+
+apply(df, 1, download.all.files)
 ```
 
