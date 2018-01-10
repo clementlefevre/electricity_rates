@@ -39,12 +39,7 @@ df<-df %>% separate(ContentURL, into = paste("V", 1:8,sep='_'),sep=',')
 df <- df %>% mutate_at(vars(starts_with("V_")), str_extract, pattern = url_pattern)
 df <- df %>% mutate_at(vars(starts_with("V_")), str_replace_all, pattern = "(>Normales)|(>Climatolog)|(>Valores)","")
 
-
-```
-
-### Read Data sample
-```{r}
-weather.text <-read.table('http://smn.conagua.gob.mx/tools/RESOURCES/Diarios/1001.txt',skip=18,nrow = length(readLines("http://smn.conagua.gob.mx/tools/RESOURCES/Diarios/1001.txt")) - 100)
+write.csv(df,'data/conagua_files_list.csv')
 ```
 
 
@@ -76,4 +71,5 @@ download.all.files <- function(x) {
 
 apply(df, 1, download.all.files)
 ```
+
 
