@@ -8,6 +8,7 @@ output:
 
 ```{r}
 library(readstata13)
+library(ggmap)
 library(dplyr)
 library(ncdf4)
 library(raster)
@@ -15,6 +16,11 @@ library(sp)
 library(rgeos)
 library(rgdal)
 library(dismo)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(lubridate)
+
 ```
 ## Read ShapeFile and Raster File.
 ```{r}
@@ -23,9 +29,15 @@ muni.shp<-readOGR(dsn="gis/shapefiles/conjunto_de_datos/",layer = "areas_geoesta
 
 RASTER_FILE_NAME <- 'gis/noaa_temperatures/air.mon.mean.nc'
 
-DATES <- c(836:838)
+band_names <- names(stack(RASTER_FILE_NAME))
 
-r.stack<-stack(RASTER_FILE_NAME,bands=DATES)
+YEARS = as.character(c(2006:2016))
+
+band_of_interest <- band_names[grepl(paste(YEARS,collapse="|"),band_names)]
+
+
+
+r.stack<-stack(RASTER_FILE_NAME,bands=band_of_interest)
 r.stack<- rotate(r.stack)
 
 data.frame( rasterToPoints( r.stack ) )
@@ -49,11 +61,17 @@ pgeo <- spTransform(muni.shp, CRS('+proj=longlat +datum=WGS84'))
 # plot on top of Google map
 e <- union(extent(rgeo), extent(pgeo))
 print(e)
-#g <- gmap(e,lonlat=TRUE)
-plot(g, inter=TRUE)
+
+#g <- gmap(e,lonlat=TRUE,style='feature:landscape|element:geometry|saturation:-100&style=feature:water|saturation:-100|invert_lightness:true',scale=2)
+#writeRaster(g,'data/mexico_raster.grd' ,datatype='INT4S', overwrite=TRUE)
+
+g2<- raster('data/mexico_raster.grd')
+plot(g2, inter=TRUE)
 plot(extent(rgeo), add=TRUE, col='red', lwd=2)
 plot(pgeo, add=TRUE, col='blue', lwd=.1)
 ```
+
+
 ```{r}
 kelvins_to_celsius= function(x){
   return (x-273.15)
@@ -62,12 +80,24 @@ kelvins_to_celsius= function(x){
 
 ```{r}
 #extraction <-extract(rgeo,pgeo, weights = TRUE, normalizeWeights=TRUE, fun=mean,df=TRUE)
-extraction <-extract(rgeo,pgeo,fun=mean,df=TRUE)
+extraction <-raster::extract(rgeo,pgeo,fun=mean,df=TRUE)
 extraction <- extraction  %>% mutate_at(vars(-ID),funs(kelvins_to_celsius))
 pgeo@data <- data.frame(pgeo@data, means=extraction)
-spplot(pgeo, "means.X2017.09.01",lwd=.1,title ='Mean temp (Celsius) for August 2014')
+
+spplot(pgeo, "means.X2016.08.01.01.06.32",lwd=.1,title ='Mean temp (Celsius) for August 2014',add=TRUE)
+```
+### Format the date of the raster file
+
+```{r}
+
+pgeo@data <-pgeo@data %>% gather(month,temp,starts_with('means'),-means.ID)
+pgeo@data$date <- str_sub(pgeo@data$month,start=8,end=17)
+pgeo@data$date <-ymd(pgeo@data$date)
+pgeo@data$year <-year(pgeo@data$date)
+pgeo@data$month <-month(pgeo@data$date)
 
 ```
+
 
 ## Read and add tariffa to shapefile data :
 ```{r}
@@ -75,7 +105,7 @@ pgeo@data <- pgeo@data %>% mutate(id = paste(CVE_ENT,CVE_MUN,sep=''))
 
 df.tariffa<-  read.dta13('gis/tariff/Tariffs.dta')
 summary(df.tariffa)
-df.temp.tariffa.munid<- left_join(pgeo@data,df.tariffa, by='id')
+df.temp.tariffa.munid<- left_join(pgeo@data,df.tariffa, by=c('id','year','month'))
 
 head(df.temp.tariffa.munid)
 ```
