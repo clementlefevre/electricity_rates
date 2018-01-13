@@ -25,10 +25,10 @@ muni.gis@data
 ```
 ### Retrieve the centroids of each MUNID
 ```{r}
-trueCentroids = gCentroid(muni.gis,byid=TRUE)
-plot(muni.gis)
-points(coordinates(muni.gis),pch=1)
-points(trueCentroids,pch=2)
+# trueCentroids = gCentroid(muni.gis,byid=TRUE)
+# plot(muni.gis)
+# points(coordinates(muni.gis),pch=1)
+# points(trueCentroids,pch=2)
 ```
 
 

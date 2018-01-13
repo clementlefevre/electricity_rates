@@ -1,13 +1,17 @@
 ---
-title: "R Notebook"
+title: "Convert CONAGUA Temperatures to Raster File"
 output: html_notebook
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
 ```{r}
+library(dplyr)
 library(stringr)
 library(stringi)
 library(tidyverse)
+library(raster)
+library(maptools)
+library(sp)
+library(gstat)
 ```
 
 
@@ -162,15 +166,66 @@ convert_prom_temp_to_dataframe <- function(f){
 
 ### Retrieve temp for stations without V_7 files (use V_3 instead)
 ```{r}
-df<-as.data.frame(c(1))
+
+retrieve.all.temps.to.df <- function(){
+  df<-as.data.frame(c(1))
   for (f in all_temp_files){
   df<- bind_rows(df,convert_prom_temp_to_dataframe(f))
   }
   df<- df %>% mutate_at(vars(c(ID)) ,funs(str_extract(.,"[^/]+(?=.txt)")))
  df[1]<-NULL
 write.csv(df,'data/conagua_stations_temp.csv')
+}
+
 ```
 
+### Merge stations infos with stations temperatures
+```{r}
+df.stations.infos<- read.csv('data/conagua_stations_infos.csv')
+df.stations.temp<- read.csv('data/conagua_stations_temp.csv')
+df.stations.infos$ESTACION <- as.character(df.stations.infos$ESTACION)
+df.stations.infos$X <- NULL
+df.stations.temp$ESTACION <- str_extract(df.stations.temp$ID,"[^/]+(?=V)")
+df.stations.temp$X<-NULL
+df.stations.temp$c.1.<- NULL
+df.stations.temp <- df.stations.temp %>% filter(!is.na(ESTACION))
+df.stations.infos.temp <- merge(df.stations.temp,df.stations.infos, by='ESTACION')
+anti_join(df.stations.temp,df.stations.infos,by='ESTACION') %>% group_by(ID) %>% summarise(n())
+
+```
+
+### Convert the temperatures dataframe into raster file
+```{r}
+spg.df<- df.stations.infos.temp
+spg.df <- spg.df %>% filter (!is.na(ID)) %>%  filter(YEAR==2010) %>% filter(title=='TEMP MINIMA PROM') %>%  filter(!is.na(Jan))%>% dplyr::select(LATITUD,LONGITUD,Jan)
+colnames(spg.df)<- c('y','x','Jan')
+spg<- spg.df
+coordinates(spg) <- ~  x + y 
+plot(spg)
+
+x.range <- as.numeric(c(-116.908, -86.82))  # min/max longitude of the interpolation area
+y.range <- as.numeric(c(14.618, 32.715))  # min/max latitude of the interpolation area
+
+grd <- expand.grid(x = seq(from = x.range[1], to = x.range[2], by = .1), y = seq(from = y.range[1], 
+    to = y.range[2], by = .1))  # expand points to grid
+coordinates(grd) <- ~x + y
+gridded(grd) <- TRUE
+plot(grd, cex = 1.5, col = "grey")
+points(spg, pch = 1, col = "red", cex = 1)
+```
+
+```{r}
+idw <- idw(formula = Jan ~ 1, locations = spg, 
+    newdata = grd)  # apply idw model for the data
+
+idw.output = as.data.frame(idw)  # output is defined as a data table
+names(idw.output)[1:3] <- c("long", "lat", "temp.pred")  # give names to the modelled variables
 
 
+```
+
+```{r}
+ggplot() + geom_tile(data = idw.output, aes(x = long, y = lat, fill = ((temp.pred))))+geom_point(data = spg.df, aes(x = x, y=y),shape=1,size=.1)+
+  labs(title='Conagua Jan 2010 Min Temp Prom')+ scale_fill_distiller(palette = "Spectral")
+```
 

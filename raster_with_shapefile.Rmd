@@ -41,7 +41,7 @@ plot(r.stack)
 ```{r}
 
 # tranform both data set to longlat
-#myshp<- subset(myshp,CVE_ENT=='01')
+#muni.shp<- subset(muni.shp,CVE_ENT=='01')
 
 rgeo <- projectRaster(r.stack, crs='+proj=longlat +datum=WGS84')
 pgeo <- spTransform(muni.shp, CRS('+proj=longlat +datum=WGS84'))
@@ -49,10 +49,10 @@ pgeo <- spTransform(muni.shp, CRS('+proj=longlat +datum=WGS84'))
 # plot on top of Google map
 e <- union(extent(rgeo), extent(pgeo))
 print(e)
-g <- gmap(e,lonlat=TRUE)
+#g <- gmap(e,lonlat=TRUE)
 plot(g, inter=TRUE)
 plot(extent(rgeo), add=TRUE, col='red', lwd=2)
-plot(pgeo, add=TRUE, col='blue', lwd=2)
+plot(pgeo, add=TRUE, col='blue', lwd=.1)
 ```
 ```{r}
 kelvins_to_celsius= function(x){
@@ -63,13 +63,9 @@ kelvins_to_celsius= function(x){
 ```{r}
 #extraction <-extract(rgeo,pgeo, weights = TRUE, normalizeWeights=TRUE, fun=mean,df=TRUE)
 extraction <-extract(rgeo,pgeo,fun=mean,df=TRUE)
-
 extraction <- extraction  %>% mutate_at(vars(-ID),funs(kelvins_to_celsius))
-
-
 pgeo@data <- data.frame(pgeo@data, means=extraction)
-
-spplot(pgeo, "means.X2017.08.01.01.06.32",lwd=.1,title ='Mean temp (Celsius) for August 2014')
+spplot(pgeo, "means.X2017.09.01",lwd=.1,title ='Mean temp (Celsius) for August 2014')
 
 ```
 
@@ -79,8 +75,7 @@ pgeo@data <- pgeo@data %>% mutate(id = paste(CVE_ENT,CVE_MUN,sep=''))
 
 df.tariffa<-  read.dta13('gis/tariff/Tariffs.dta')
 summary(df.tariffa)
-pgeo@data<- left_join(pgeo@data,df.tariffa, by='id')
+df.temp.tariffa.munid<- left_join(pgeo@data,df.tariffa, by='id')
 
-df.temp.tariffa.munid<-as.data.frame(pgeo@data)
 head(df.temp.tariffa.munid)
 ```
