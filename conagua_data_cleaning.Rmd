@@ -8,10 +8,11 @@ library(dplyr)
 library(stringr)
 library(stringi)
 library(tidyverse)
-library(raster)
-library(maptools)
-library(sp)
-library(gstat)
+
+
+Sys.setlocale("LC_MESSAGES", 'en_GB.UTF-8')
+Sys.setlocale('LC_ALL','en_GB.UTF-8')
+Sys.setenv(LANG = "en_US.UTF-8")
 ```
 
 
@@ -21,8 +22,8 @@ Then we filter on file urls that contains the 'Mensuales' keyword to scrap the m
 
 ```{r}
 cols_url <- paste("V", 1:7,sep='_')
-df.files <- read.csv('data/conagua_files_list.csv')
-df.files.gather<- df.files %>% select(c('ID',cols_url )) %>% gather(key=vector,value=url,-ID)
+df.files <- read.csv('data/conagua_files_list.csv',encoding = 'utf-8')
+df.files.gather<- df.files %>% dplyr::select(c('ID',cols_url )) %>% gather(key=vector,value=url,-ID)
 df.files.mensuales <- df.files.gather %>% dplyr::filter(.,grepl('Mensuales',url))
 str(df.files.mensuales)
 head(df.files.mensuales)
@@ -121,7 +122,7 @@ convert_prom_temp_to_dataframe <- function(f){
     
     file_name <-paste(DATA_FOLDER,f,sep='')
     con <- file(file_name)
-    lns <- readLines(con)
+    lns <- readLines(con,encoding = 'UTF-8')
     
     MINIMA <- grep('MINIMA',lns)
     start.read.mintmp <- grep('TEMP MINIMA PROM',lns)
@@ -136,21 +137,23 @@ convert_prom_temp_to_dataframe <- function(f){
       end.read.mintmp <- MINIMA[match(start.read.mintmp,MINIMA)+1]
        tmp.min.rows <- end.read.mintmp - start.read.mintmp -2
        
-      df.tmp.min<- read.fwf(file_name, width=c(25,5,rep(7,each=13),10,10),skip=start.read.mintmp,col.names=col.names,n=tmp.min.rows)
+      df.tmp.min<- read.fwf(file_name, width=c(25,5,rep(7,each=13),10,10),skip=start.read.mintmp,col.names=col.names,n=tmp.min.rows,encoding = 'UTF-8')
     df.tmp.min$title='TEMP MINIMA PROM'
     }
     
      if(length(start.read.maxtmp)>0){
         end.read.maxtmp <- MINIMA[MINIMA>start.read.maxtmp][1]
           tmp.max.rows <- end.read.maxtmp - start.read.maxtmp -2
-    df.tmp.max<- read.fwf(file_name, width=c(25,5,rep(7,each=13),10,10),skip=start.read.maxtmp,col.names=col.names,n=tmp.max.rows)
+    df.tmp.max<- read.fwf(file_name, width=c(25,5,rep(7,each=13),10,10),skip=start.read.maxtmp,col.names=col.names,n=tmp.max.rows,encoding = 'UTF-8')
     df.tmp.max$title='TEMP MAXIMA PROM'
      }
-    
-    df<-  rbind(df.tmp.min,df.tmp.max)
+
+    df<-  bind_rows(df.tmp.min,df.tmp.max)
+   
     df$ID <- file_name
     
-    df <- df %>%  select(ID, everything())
+    df <- df %>%  dplyr::select(ID, everything())
+    
     close(con)
     
   },error=function(cond) {
@@ -169,63 +172,30 @@ convert_prom_temp_to_dataframe <- function(f){
 
 retrieve.all.temps.to.df <- function(){
   df<-as.data.frame(c(1))
+  print (df)
   for (f in all_temp_files){
-  df<- bind_rows(df,convert_prom_temp_to_dataframe(f))
+  
+    df.prom.temp<- convert_prom_temp_to_dataframe(f)
+    tryCatch(
+      {
+       df<- bind_rows(df,df.prom.temp)
+      
+  },error=function(cond) {
+            message(paste("file could not be wrapped :", f))
+  })
+   
   }
+  
   df<- df %>% mutate_at(vars(c(ID)) ,funs(str_extract(.,"[^/]+(?=.txt)")))
  df[1]<-NULL
 write.csv(df,'data/conagua_stations_temp.csv')
 }
 
-```
-
-### Merge stations infos with stations temperatures
-```{r}
-df.stations.infos<- read.csv('data/conagua_stations_infos.csv')
-df.stations.temp<- read.csv('data/conagua_stations_temp.csv')
-df.stations.infos$ESTACION <- as.character(df.stations.infos$ESTACION)
-df.stations.infos$X <- NULL
-df.stations.temp$ESTACION <- str_extract(df.stations.temp$ID,"[^/]+(?=V)")
-df.stations.temp$X<-NULL
-df.stations.temp$c.1.<- NULL
-df.stations.temp <- df.stations.temp %>% filter(!is.na(ESTACION))
-df.stations.infos.temp <- merge(df.stations.temp,df.stations.infos, by='ESTACION')
-anti_join(df.stations.temp,df.stations.infos,by='ESTACION') %>% group_by(ID) %>% summarise(n())
-
-```
-
-### Convert the temperatures dataframe into raster file
-```{r}
-spg.df<- df.stations.infos.temp
-spg.df <- spg.df %>% filter (!is.na(ID)) %>%  filter(YEAR==2010) %>% filter(title=='TEMP MINIMA PROM') %>%  filter(!is.na(Jan))%>% dplyr::select(LATITUD,LONGITUD,Jan)
-colnames(spg.df)<- c('y','x','Jan')
-spg<- spg.df
-coordinates(spg) <- ~  x + y 
-plot(spg)
-
-x.range <- as.numeric(c(-116.908, -86.82))  # min/max longitude of the interpolation area
-y.range <- as.numeric(c(14.618, 32.715))  # min/max latitude of the interpolation area
-
-grd <- expand.grid(x = seq(from = x.range[1], to = x.range[2], by = .1), y = seq(from = y.range[1], 
-    to = y.range[2], by = .1))  # expand points to grid
-coordinates(grd) <- ~x + y
-gridded(grd) <- TRUE
-plot(grd, cex = 1.5, col = "grey")
-points(spg, pch = 1, col = "red", cex = 1)
+retrieve.all.temps.to.df()
 ```
 
 ```{r}
-idw <- idw(formula = Jan ~ 1, locations = spg, 
-    newdata = grd)  # apply idw model for the data
+df.conagua <- read.csv('data/conagua_stations_temp.csv')
 
-idw.output = as.data.frame(idw)  # output is defined as a data table
-names(idw.output)[1:3] <- c("long", "lat", "temp.pred")  # give names to the modelled variables
-
-
-```
-
-```{r}
-ggplot() + geom_tile(data = idw.output, aes(x = long, y = lat, fill = ((temp.pred))))+geom_point(data = spg.df, aes(x = x, y=y),shape=1,size=.1)+
-  labs(title='Conagua Jan 2010 Min Temp Prom')+ scale_fill_distiller(palette = "Spectral")
 ```
 

@@ -1,0 +1,115 @@
+---
+title: "Combine NOOA Raster file (mean temperatures historical data)  with Mexico municipalities Shapefile"
+output:
+  html_document: html_notebook
+
+---
+
+
+```{r}
+library(readstata13)
+library(ggmap)
+library(dplyr)
+library(ncdf4)
+library(raster)
+library(sp)
+library(rgeos)
+library(rgdal)
+library(dismo)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(lubridate)
+
+```
+## Read ShapeFile and Raster File.
+```{r}
+
+muni.shp<-readOGR(dsn="gis/shapefiles/conjunto_de_datos/",layer = "areas_geoestadisticas_municipales")
+
+RASTER_FILE_NAME <- 'gis/noaa_temperatures/air.mon.mean.nc'
+
+band_names <- names(stack(RASTER_FILE_NAME))
+
+YEARS = as.character(c(2010:2016))
+
+band_of_interest <- band_names[grepl(paste(YEARS,collapse="|"),band_names)]
+
+
+
+r.stack<-stack(RASTER_FILE_NAME,bands=band_of_interest)
+r.stack<- rotate(r.stack)
+
+data.frame( rasterToPoints( r.stack ) )
+
+mexico_limits <- extent(-118,-82,14,34)
+r.stack <- crop(r.stack, mexico_limits)
+print (r.stack)
+#df.r<- as.data.frame(rc,xy=TRUE,optional = TRUE)
+plot(r.stack)
+```
+
+## Project both Shapefile and Raster  on WGS84 and check that they match on the map.
+```{r}
+
+# tranform both data set to longlat
+#muni.shp<- subset(muni.shp,CVE_ENT=='01')
+
+rgeo <- projectRaster(r.stack, crs='+proj=longlat +datum=WGS84')
+pgeo <- spTransform(muni.shp, CRS('+proj=longlat +datum=WGS84'))
+
+# plot on top of Google map
+e <- union(extent(rgeo), extent(pgeo))
+print(e)
+
+#g <- gmap(e,lonlat=TRUE,style='feature:landscape|element:geometry|saturation:-100&style=feature:water|saturation:-100|invert_lightness:true',scale=2)
+#writeRaster(g,'data/mexico_raster.grd' ,datatype='INT4S', overwrite=TRUE)
+
+g2<- raster('data/mexico_raster.grd')
+plot(g2, inter=TRUE)
+plot(extent(rgeo), add=TRUE, col='red', lwd=2)
+plot(pgeo, add=TRUE, col='blue', lwd=.1)
+```
+
+
+```{r}
+kelvins_to_celsius= function(x){
+  return (x-273.15)
+}
+```
+
+```{r}
+#extraction <-extract(rgeo,pgeo, weights = TRUE, normalizeWeights=TRUE, fun=mean,df=TRUE)
+extraction <-raster::extract(rgeo,pgeo,fun=mean,df=TRUE)
+extraction <- extraction  %>% mutate_at(vars(-ID),funs(kelvins_to_celsius))
+pgeo@data <- data.frame(pgeo@data, means=extraction)
+
+spplot(pgeo, "means.X2016.08.01.01.06.32",lwd=.1,title ='Mean temp (Celsius) for August 2014',add=TRUE)
+```
+### Format the date of the raster file
+
+```{r}
+
+pgeo@data <-pgeo@data %>% gather(month,temp,starts_with('means'),-means.ID)
+pgeo@data$date <- str_sub(pgeo@data$month,start=8,end=17)
+pgeo@data$date <-ymd(pgeo@data$date)
+pgeo@data$year <-year(pgeo@data$date)
+pgeo@data$month <-month(pgeo@data$date)
+
+```
+## Read tariffa file and combine by tariffa Codes :
+```{r}
+df.tariffa<-  read.dta13('gis/tariff/Tariffs.dta')
+df.tariffa.grouped <- df.tariffa %>% group_by(date2,munid,tarifa) %>% mutate(i=1)%>% spread(tarifa,i,fill=0)
+head(df.tariffa.grouped)
+
+```
+
+
+## Combine tariffa with mean temperature :
+```{r}
+pgeo@data <- pgeo@data %>% mutate(id = paste(CVE_ENT,CVE_MUN,sep=''))
+df.temp.tariffa.munid<- left_join(pgeo@data,df.tariffa.grouped, by=c('id','year','month'))
+
+write.csv(df.temp.tariffa.munid,'data/nooa_temp_with_tariffa_munid.csv')
+```
