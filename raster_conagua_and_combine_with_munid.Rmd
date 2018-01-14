@@ -13,6 +13,8 @@ library(maptools)
 library(sp)
 library(gstat)
 library(rgdal)
+
+mo2Num <- function(x) match(tolower(x), tolower(month.abb))
 ```
 
 
@@ -28,7 +30,7 @@ df.stations.infos$ESTACION <- as.character(df.stations.infos$ESTACION)
 df.stations.infos$X <- NULL
 df.stations.temp$ESTACION <- str_extract(df.stations.temp$ID,"[^/]+(?=V)")
 
-df.stations.temp<- df.stations.temp %>% dplyr::select(one_of(c('ESTACION', 'ID','LATITUD','LONGITUD','YEAR',month.abb[seq(1:12)])))
+df.stations.temp<- df.stations.temp %>% dplyr::select(one_of(c('ESTACION', 'ID','LATITUD','LONGITUD','YEAR','title',month.abb[seq(1:12)])))
 df.stations.temp <- df.stations.temp %>% filter(!is.na(ID))
 df.stations.infos.temp <- merge(df.stations.temp,df.stations.infos, by='ESTACION',all.x=TRUE)
 anti_join(df.stations.temp,df.stations.infos,by='ESTACION') %>% group_by(ID) %>% summarise(n())
@@ -46,12 +48,13 @@ df <- df.stations.infos.temp %>% dplyr::filter(YEAR %in% date_range)
 df <- df %>% gather(month,temp,month.abb[seq(1:12)])
 df <- df %>% mutate(year.month.temp = str_replace_all(str_c(title,YEAR,month, sep = ".", collapse = NULL),'[:blank:]','.'))
 
-# mo2Num <- function(x) match(tolower(x), tolower(month.abb))
-# df.stations.infos.temp<- df.stations.infos.temp %>%mutate_at('month', funs(mo2Num))
-# 
-# df.stations.infos.temp <- df.stations.infos.temp[with(df.stations.infos.temp, order(YEAR,month)), ]
-# 
-# DATE.TEMP.TYPE <- unique(df.stations.infos.temp$year.month.temp)
+
+df<- df %>%mutate_at('month', funs(mo2Num))
+
+df <- df[with(df, order(ID,YEAR,month)), ]
+df <- df %>% dplyr::filter(!is.na(temp))
+
+DATE.TEMP.TYPE <- unique(df$year.month.temp)
 
 ```
 
@@ -69,25 +72,25 @@ gridded(grd) <- TRUE
 
 rasterize.date.temp <- function(date.temp){
   
-spg.df <- df.stations.infos.temp %>% filter ((!is.na(ID))& !is.na(temp)) %>%  filter(year.month.temp==date.temp)%>% dplyr::select(LATITUD,LONGITUD,temp)
+spg.df <- df %>% filter ((!is.na(ID))& !is.na(temp) &(!is.na(LATITUD))) %>%  filter(year.month.temp==date.temp)%>% dplyr::select(LATITUD,LONGITUD,temp)
 
 colnames(spg.df)<- c('lat','lon','temp')
 spg<- spg.df
-coordinates(spg) <- ~  lon + lat
+sp::coordinates(spg) <- ~  lon + lat
 
 ## Extrapolate the temperature for the whole grid :
 idw <- idw(formula = temp ~ 1, locations = spg,    newdata = grd)  # apply idw model for the data
 
-idw.output = as.data.frame(idw)  # output is defined as a data table
-names(idw.output)[1:3] <- c("lon", "lat", "temp.pred")  # give names to the modelled variables
+# idw.output = as.data.frame(idw)  # output is defined as a data table
+# names(idw.output)[1:3] <- c("lon", "lat", "temp.pred")  # give names to the modelled variables
 
 
-ggplot() + geom_tile(data = idw.output, aes(x = lon, y = lat, fill = ((temp.pred))))+geom_point(data = spg.df, aes(x = lon, y=lat),shape=1,size=.1)+
-  labs(title='Conagua Jan 2010 Min Temp Prom')+ scale_fill_distiller(palette = "Spectral")
-
+# p<- ggplot() + geom_tile(data = idw.output, aes(x = lon, y = lat, fill = ((temp.pred))))+geom_point(data = spg.df, aes(x = lon, y=lat),shape=1,size=.1)+
+#   labs(title=date.temp)+ scale_fill_distiller(palette = "Spectral")
+# print(p)
 raster.conagua <-raster(idw)
 crs(raster.conagua) <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
-print(date.temp)
+
 names(raster.conagua)<- date.temp
 return (raster.conagua)
 }
@@ -96,10 +99,12 @@ return (raster.conagua)
 
 
 ```{r}
-for (date.temp in head(DATE.TEMP.TYPE,3)){
-  print(date.temp)
+
+rasterize.all.conagua.temps <- function(){
+  for (date.temp in DATE.TEMP.TYPE){
+ 
   rasta <- rasterize.date.temp(date.temp)
-  
+ 
   if(which(DATE.TEMP.TYPE==date.temp)==1){
     raster.merge <- rasta
   } 
@@ -108,47 +113,17 @@ for (date.temp in head(DATE.TEMP.TYPE,3)){
   }
 }
 
-#raster.merge <- raster::stack(raster.test1,raster.test2)
-
+writeRaster(raster.merge, filename="data/conagua_raster.grd", format="raster",overwrite=TRUE)
+}
 ```
 
 
-## old idw
-```{r}
-
-spg.df<- df.stations.infos.temp
-spg.df <- spg.df %>% filter (!is.na(ID)) %>%  filter(YEAR==2010) %>% filter(title=='TEMP MINIMA PROM') %>%  filter(!is.na(Jan))%>% dplyr::select(LATITUD,LONGITUD,Jan)
-colnames(spg.df)<- c('y','x','Jan')
-spg<- spg.df
-coordinates(spg) <- ~  x + y 
-plot(spg)
-
-x.range <- as.numeric(c(-116.908, -86.82))  # min/max longitude of the interpolation area
-y.range <- as.numeric(c(14.618, 32.715))  # min/max latitude of the interpolation area
-
-grd <- expand.grid(x = seq(from = x.range[1], to = x.range[2], by = .1), y = seq(from = y.range[1], 
-    to = y.range[2], by = .1))  # expand points to grid
-coordinates(grd) <- ~x + y
-gridded(grd) <- TRUE
-plot(grd, cex = 1.5, col = "grey")
-points(spg, pch = 1, col = "red", cex = 1)
-
-idw <- idw(formula = Jan ~ 1, locations = spg, 
-    newdata = grd)  # apply idw model for the data
-
-idw.output = as.data.frame(idw)  # output is defined as a data table
-names(idw.output)[1:3] <- c("long", "lat", "temp.pred")  # give names to the modelled variables
-
-
-ggplot() + geom_tile(data = idw.output, aes(x = long, y = lat, fill = ((temp.pred))))+geom_point(data = spg.df, aes(x = x, y=y),shape=1,size=.1)+
-  labs(title='Conagua Jan 2010 Min Temp Prom')+ scale_fill_distiller(palette = "Spectral")
-
-```
 
 
 ## Raster the extrapolation grid and extract it on the Munid Shapefile :
 ```{r}
-raster.conagua <-raster(idw)
+raster.conagua <-stack('data/conagua_raster.grd')
+
 crs(raster.conagua) <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
 muni.shp<-readOGR(dsn="gis/shapefiles/conjunto_de_datos/",layer = "areas_geoestadisticas_municipales")
 
@@ -168,12 +143,46 @@ plot(extent(rgeo), add=TRUE, col='red', lwd=2)
 plot(pgeo, add=TRUE, col='blue', lwd=.1)
 
 ```
+
+## extract the raster temp per Polygon MunID
 ```{r}
 #extraction <-extract(rgeo,pgeo, weights = TRUE, normalizeWeights=TRUE, fun=mean,df=TRUE)
 extraction <-raster::extract(rgeo,pgeo,fun=mean,df=TRUE)
 
 pgeo@data <- data.frame(pgeo@data, means=extraction)
 
-sp::spplot(pgeo, "means.var1.pred",lwd=.1,title ='Mean temp (Celsius) for August 2014')
+sp::spplot(pgeo, "means.TEMP.MAXIMA.PROM.2016.Nov",lwd=.1,title ='Mean temp (Celsius) for August 2014')
+```
+### Save file
+```{r}
+df.conagua<- pgeo@data %>% gather(date,temperature,starts_with('means'),-means.ID)
+df.conagua <- df.conagua %>% separate(date,paste('date',c(1:6),sep='.'))
+df.conagua<- df.conagua %>%mutate_at('date.6', funs(mo2Num))
+df.conagua$year <- as.numeric(df.conagua$date.5)
+df.conagua$temp.type <- df.conagua$date.3
+
+df.conagua$month <- as.numeric(df.conagua$date.6)
+df.conagua <- df.conagua %>% dplyr::select(one_of(c("CVE_ENT","CVE_MUN","NOM_MUN",'temperature','temp.type','year','month')))
+df.conagua <- df.conagua %>% spread(temp.type,temperature)
+df.conagua <- df.conagua %>%  mutate(MUNID = paste(CVE_ENT, CVE_MUN , sep = ''))
+df.conagua <- df.conagua %>% rename('Conagua.min.temp'=MINIMA)
+df.conagua <- df.conagua %>% rename('Conagua.max.temp'=MAXIMA)
+
+write.csv(df.conagua,'data/conagua_min_max.csv')
+
+```
+
+### Combine with NOOA data
+```{r}
+df.nooa<-read.csv('data/nooa_temp_with_tariffa_munid.csv')
+df.nooa <- df.nooa %>% mutate(CVE_ENT = str_pad(CVE_ENT,2,side='left','0'))
+df.nooa <- df.nooa %>% mutate(CVE_MUN = str_pad(CVE_MUN,3,side='left','0'))
+df.nooa <- df.nooa %>% mutate(MUNID = paste(CVE_ENT,CVE_MUN,sep=''))
+df.nooa <- df.nooa %>% rename('NOOA.Average.temp'=temp)
+df.nooa <- df.nooa %>% dplyr::select(one_of( "CVE_ENT","CVE_MUN","NOM_MUN","month","NOOA.Average.temp","year","X01",
+                                             "X1A","X1B","X1C","X1D","X1E","X1F","DAC","MUNID"))   
+df.all <- merge(df.nooa,df.conagua %>% dplyr::select(one_of('MUNID','year','month','Conagua.min.temp','Conagua.max.temp')),by=c('MUNID','year','month'))
+
+write.csv(df.all,'data/noaa_conagua_temp_avg_min_max.csv')
 ```
 
