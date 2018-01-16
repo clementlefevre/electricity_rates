@@ -9,6 +9,7 @@ library(stringr)
 library(stringi)
 library(tidyverse)
 library(lubridate)
+Sys.setlocale("LC_TIME", "en_US.UTF-8")
 ```
 
 
@@ -38,14 +39,14 @@ get_stations_diarios <- function(file_){
   DATA_FOLDER <- 'data/sonaguas'
  
   filename <-paste(DATA_FOLDER,file_,sep='/')
+  print(filename)
   
-  con <- file(filename)
-  lns <- readLines(filename)
+  lns <- readLines(filename,encoding = 'UTF-8')
   
   col.names <- c('date','PRECIP','EVAP' ,'TMAX','TMIN')
   
-  start.read.diarios <- grep('FECHA',lns)[1]+1
-  end.read.diarios <- grep('---------',lns)[-1]
+  start.read.diarios <- grep("-------", lns)[1]
+  end.read.diarios <- grep('-------',lns)[-1]
   
   
    if((length(start.read.diarios)>0) & (length(end.read.diarios)>0)){
@@ -55,31 +56,34 @@ get_stations_diarios <- function(file_){
                          skip=start.read.diarios,
                          n=end.read.diarios-start.read.diarios-1,
                          encoding = 'UTF-8')
-  
- 
-  close(con)
-  
+
   }
-  },error=function(cond) {
-            message(paste("file could not be wrapped :", filename))
-  })
+  },
+warning = function (e) {
+  print(sprintf("caught Warning: %s", e))
+  traceback(1, max.lines = 1)
+},
+error = function(e) {
+  print(sprintf("caught Error: %s", e))
+  traceback(1, max.lines = 1)
+})
+ 
   
-  df.diarios$date <- dmy(df.diarios$date)
-  df.diarios <- df.diarios  %>% dplyr::filter(date>as.Date('2004-12-31'))
-df.diarios$TMAX <- as.numeric(as.character(df.diarios$TMAX))
-df.diarios$TMIN <- as.numeric(as.character(df.diarios$TMIN))
-df.diarios$ESTACION <- file_
+    df.diarios$date <- dmy(df.diarios$date)
+    df.diarios <- df.diarios  %>% dplyr::filter(date>as.Date('2004-12-31'))
+    df.diarios$TMAX <- as.numeric(as.character(df.diarios$TMAX))
+    df.diarios$TMIN <- as.numeric(as.character(df.diarios$TMIN))
+    df.diarios$ESTACION <- file_
   
   return(df.diarios %>% select(ESTACION,date,TMAX,TMIN))
 }
 
-```
-
-
-```{r}
 df.test <- get_stations_diarios('1001V_1.txt')
 
 ```
+
+
+
 
 ```{r}
 
@@ -97,7 +101,38 @@ retrieve_all_diarios <- function(){
   return (df)
 }
 
-df <- retrieve_all_diarios()
-write.csv(df, 'data/conagua_diarios.csv')
+#df <- retrieve_all_diarios()
+#write.csv(df, 'data/conagua_diarios.csv')
 ```
+###  Compute Mean Temp per day and aggregate per Month
+```{r}
+df<- read.csv('data/conagua_diarios.csv')
+df<- df %>% filter((!is.na(TMAX))&(!is.na(TMIN)))
+df$month <- month(df$date)
+df$year <- year(df$date)
+df$T.day.mean <- (df$TMAX+df$TMIN)/2
+df<-df %>% select(ESTACION,year,month,T.day.mean)
+
+
+```
+
+```{r}
+df <- df %>% mutate(year.month = str_c(as.character(year),str_pad(as.character(month),2,side='left',pad='0'),sep='.'))
+groupy<-df %>% group_by(ESTACION,year.month)%>% summarise(T.mean=mean(T.day.mean,na.rm=TRUE),T.counts=sum(!is.na(T.day.mean)))
+
+groupy <- groupy %>% select(ESTACION,year.month,T.mean) %>% spread(year.month,T.mean)
+groupy$ESTACION.ID <-sub('V.*$','', groupy$ESTACION)
+groupy <-groupy %>%select(ESTACION.ID, everything())
+
+```
+
+## Add stations coordinates
+```{r}
+df.stations.infos<-read.csv('data/conagua_stations_infos.csv')
+df.stations.infos$ESTACION <- as.character(df.stations.infos$ESTACION)
+
+df.mean.temp.month <- merge(groupy,df.stations.infos %>% select(ESTACION,LATITUD,LONGITUD),by.x='ESTACION.ID',by.y='ESTACION')
+#groupy <- select(ESTACION.ID,LATITUD,LONGITUD,everything())
+```
+
 
