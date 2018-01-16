@@ -8,11 +8,7 @@ library(dplyr)
 library(stringr)
 library(stringi)
 library(tidyverse)
-
-
-Sys.setlocale("LC_MESSAGES", 'en_GB.UTF-8')
-Sys.setlocale('LC_ALL','en_GB.UTF-8')
-Sys.setenv(LANG = "en_US.UTF-8")
+library(lubridate)
 ```
 
 
@@ -32,50 +28,49 @@ df.files.diarios$filename<- paste(df.files.diarios$ID,df.files.diarios$vector,'.
 
 
 
-## Combine all stations info into dataframe
-
-```{r}
-all_files <-list.files(DATA_FOLDER <- 'data/sonaguas')
-all_infos_files <- all_files[grepl('(V_1)',all_files)]
-all_temp_files <- df.files.diarios$filename
-
-```
-
-
 ## Read the full history file and retrieve the station informations 
 
 ```{r}
-get_stations_diarios <- function(filename){
+get_stations_diarios <- function(file_){
   
   tryCatch({
   
   DATA_FOLDER <- 'data/sonaguas'
  
-  filename <-paste(DATA_FOLDER,filename,sep='/')
+  filename <-paste(DATA_FOLDER,file_,sep='/')
   
   con <- file(filename)
   lns <- readLines(filename)
   
   col.names <- c('date','PRECIP','EVAP' ,'TMAX','TMIN')
   
-  start.read.diarios <- grep('FECHA',lns)[1]+2
+  start.read.diarios <- grep('FECHA',lns)[1]+1
   end.read.diarios <- grep('---------',lns)[-1]
   
-  print (start.read.diarios)
-  print (end.read.diarios)
   
    if((length(start.read.diarios)>0) & (length(end.read.diarios)>0)){
-  print ('coucou')
-  df.diarios <- read.fwf(filename, width=c(10,rep(8,each=2),7,7),col.names=col.names,skip=start.read.diarios,n=end.read.diarios-start.read.diarios,encoding = 'UTF-8')
+ 
+  df.diarios <- read.fwf(filename, width=c(11,rep(7,each=4)),
+                         col.names=col.names,
+                         skip=start.read.diarios,
+                         n=end.read.diarios-start.read.diarios-1,
+                         encoding = 'UTF-8')
   
- print (df.diarios)
+ 
   close(con)
   
   }
   },error=function(cond) {
             message(paste("file could not be wrapped :", filename))
   })
-  return(df.diarios)
+  
+  df.diarios$date <- dmy(df.diarios$date)
+  df.diarios <- df.diarios  %>% dplyr::filter(date>as.Date('2004-12-31'))
+df.diarios$TMAX <- as.numeric(as.character(df.diarios$TMAX))
+df.diarios$TMIN <- as.numeric(as.character(df.diarios$TMIN))
+df.diarios$ESTACION <- file_
+  
+  return(df.diarios %>% select(ESTACION,date,TMAX,TMIN))
 }
 
 ```
@@ -83,7 +78,26 @@ get_stations_diarios <- function(filename){
 
 ```{r}
 df.test <- get_stations_diarios('1001V_1.txt')
-```
-## Read the temperature text file for a given Station and convert the MIN/MAX Tem Prom to Dataframe
 
+```
+
+```{r}
+
+retrieve_all_diarios <- function(){
+  df<-as.data.frame(c('a'))
+  for(f in df.files.diarios$filename){
+    tryCatch({
+      df <- bind_rows(df,get_stations_diarios(f))
+      print(which(df.files.diarios$filename==f)/length(df.files.diarios$filename)*100)
+    },error=function(cond) {
+            message(paste("file could not be wrapped :", f))
+  }
+    )
+  }
+  return (df)
+}
+
+df <- retrieve_all_diarios()
+write.csv(df, 'data/conagua_diarios.csv')
+```
 
